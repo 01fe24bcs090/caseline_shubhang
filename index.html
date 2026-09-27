@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASELINE — AI-Powered Security Evidence Engine</title>
+    <meta name="description" content="CaseLine: Evidence first. AI second. Human decision always. Multi-camera CCTV analysis, cross-camera tracking, and automated incident reporting.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ── Reset & Base ── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-primary: #06080d;
+            --bg-card: #0c1018;
+            --bg-card-hover: #111822;
+            --border: rgba(56, 139, 253, 0.12);
+            --border-glow: rgba(56, 139, 253, 0.35);
+            --text-primary: #e6edf8;
+            --text-secondary: #8b99af;
+            --text-muted: #4d5a6e;
+            --accent: #388bfd;
+            --accent-bright: #58a6ff;
+            --accent-dim: #1a3a5c;
+            --red-alert: #f85149;
+            --green-safe: #3fb950;
+            --amber-warn: #d29922;
+            --font-sans: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-dim) var(--bg-primary);
+        }
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* ── Scanlines overlay ── */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ── Nav ── */
+        .nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            padding: 1.2rem 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            background: rgba(6, 8, 13, 0.7);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            transition: background 0.3s;
+        }
+        .nav-logo {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 1.3rem;
+            letter-spacing: 3px;
+            color: var(--accent-bright);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .nav-logo .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green-safe);
+            animation: pulse-dot 2s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--green-safe);
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--accent-bright); }
+        .btn-launch {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.4rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(56, 139, 253, 0.25);
+        }
+        .btn-launch:hover {
+            background: var(--accent-bright);
+            box-shadow: 0 0 30px rgba(56, 139, 253, 0.5);
+            transform: translateY(-1px);
+        }
+
+        /* ── Hero ── */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+            position: relative;
+        }
+        .hero-grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(56, 139, 253, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 139, 253, 0.04) 1px, transparent 1px);
+            background-size: 60px 60px;
+            mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+            -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 30%, transparent 80%);
+        }
+        .hero-glow {
+            position: absolute;
+            width: 600px; height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56, 139, 253, 0.10) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border: 1px solid var(--border-glow);
+            border-radius: 100px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent-bright);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            background: rgba(56, 139, 253, 0.06);
+        }
+        .hero-badge .rec-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--red-alert);
+            animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+        .hero h1 {
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -2px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        .hero h1 .line { display: block; overflow: hidden; }
+        .hero h1 .line span {
+            display: inline-block;
+            transform: translateY(120%);
+        }
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, var(--accent-bright), #a371f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-sub {
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            max-width: 520px;
+            margin-bottom: 3rem;
+            font-weight: 400;
+            opacity: 0;
+        }
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            opacity: 0;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.9rem 2rem;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 4px 25px rgba(56, 139, 253, 0.3);
+        }
+        .btn-primary:hover {
+            background: var(--accent-bright);
+            box-shadow: 0 4px 35px rgba(56, 139, 253, 0.5);
+            transform: translateY(-2px);
+        }
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.9rem 2rem;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        .btn-ghost:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+            background: rgba(56, 139, 253, 0.06);
+        }
+        .hero-scroll-hint {
+            position: absolute;
+            bottom: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            opacity: 0;
+        }
+        .hero-scroll-hint span {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .scroll-line {
+            width: 1px; height: 40px;
+            background: linear-gradient(to bottom, var(--accent), transparent);
+            animation: scroll-pulse 2s ease-in-out infinite;
+        }
+        @keyframes scroll-pulse {
+            0%, 100% { opacity: 0.3; transform: scaleY(0.6); }
+            50% { opacity: 1; transform: scaleY(1); }
+        }
+
+        /* ── Section base ── */
+        section {
+            padding: 8rem 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+        }
+        .section-desc {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin-bottom: 4rem;
+        }
+
+        /* ── Terminal showcase ── */
+        .terminal-section {
+            padding: 4rem 3rem 8rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .terminal {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 139, 253, 0.05);
+            opacity: 0;
+            transform: translateY(60px) scale(0.95);
+        }
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.9rem 1.2rem;
+            background: rgba(255,255,255,0.03);
+            border-bottom: 1px solid var(--border);
+        }
+        .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .terminal-dot.r { background: #f85149; }
+        .terminal-dot.y { background: #d29922; }
+        .terminal-dot.g { background: #3fb950; }
+        .terminal-title {
+            flex: 1;
+            text-align: center;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .terminal-body {
+            padding: 1.5rem;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            line-height: 1.8;
+            min-height: 260px;
+        }
+        .terminal-body .line {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        .t-prompt { color: var(--green-safe); }
+        .t-cmd { color: var(--text-primary); }
+        .t-output { color: var(--text-secondary); }
+        .t-success { color: var(--green-safe); }
+        .t-warning { color: var(--amber-warn); }
+        .t-error { color: var(--red-alert); }
+        .t-accent { color: var(--accent-bright); }
+
+        /* ── Features ── */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            opacity: 0;
+            transform: translateY(40px);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .feature-card:hover {
+            border-color: var(--border-glow);
+            background: var(--bg-card-hover);
+            transform: translateY(-4px);
+        }
+        .feature-card:hover::before { opacity: 1; }
+        .feature-icon {
+            width: 48px; height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            margin-bottom: 1.2rem;
+            background: var(--accent-dim);
+            border: 1px solid rgba(56, 139, 253, 0.2);
+        }
+        .feature-card h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ── Pipeline / How it works ── */
+        .pipeline-track {
+            position: relative;
+            padding-left: 3rem;
+        }
+        .pipeline-track::before {
+            content: '';
+            position: absolute;
+            left: 15px; top: 0; bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+        .pipeline-line-fill {
+            position: absolute;
+            left: 15px; top: 0;
+            width: 2px; height: 0;
+            background: linear-gradient(to bottom, var(--accent), var(--green-safe));
+            z-index: 1;
+        }
+        .pipeline-step {
+            position: relative;
+            margin-bottom: 3.5rem;
+            opacity: 0;
+            transform: translateX(-30px);
+        }
+        .pipeline-step:last-child { margin-bottom: 0; }
+        .step-dot {
+            position: absolute;
+            left: -3rem; top: 0.2rem;
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            z-index: 2;
+            transition: all 0.4s;
+        }
+        .pipeline-step.active .step-dot {
+            border-color: var(--accent);
+            color: var(--accent-bright);
+            box-shadow: 0 0 15px rgba(56, 139, 253, 0.3);
+        }
+        .pipeline-step h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .pipeline-step p {
+            color: var(--text-secondary);
+            font-size: 0.92rem;
+        }
+        .step-tag {
+            display: inline-block;
+            margin-top: 0.6rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(56, 139, 253, 0.1);
+            color: var(--accent-bright);
+            border: 1px solid rgba(56, 139, 253, 0.15);
+        }
+        .step-tag.ai { background: rgba(163, 113, 247, 0.1); color: #a371f7; border-color: rgba(163, 113, 247, 0.15); }
+        .step-tag.human { background: rgba(63, 185, 80, 0.1); color: var(--green-safe); border-color: rgba(63, 185, 80, 0.15); }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            padding: 5rem 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .stat {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        .stat-number {
+            font-family: var(--font-mono);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 800;
+            color: var(--accent-bright);
+            margin-bottom: 0.3rem;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ── CTA ── */
+        .cta {
+            text-align: center;
+            padding: 8rem 3rem;
+            position: relative;
+        }
+        .cta-glow {
+            position: absolute;
+            width: 500px; height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56, 139, 253, 0.08) 0%, transparent 70%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .cta h2 {
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+            opacity: 0;
+        }
+        .cta p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+            opacity: 0;
+        }
+        .cta .btn-primary { opacity: 0; }
+
+        /* ── Footer ── */
+        .footer {
+            padding: 3rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .footer-left {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .footer-right {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .nav { padding: 1rem 1.5rem; }
+            .nav-links a { display: none; }
+            section { padding: 5rem 1.5rem; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); padding: 4rem 1.5rem; }
+            .features-grid { grid-template-columns: 1fr; }
+            .terminal-section { padding: 2rem 1.5rem 5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+    <a href="#" class="nav-logo"><span class="dot"></span> CASELINE</a>
+    <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#pipeline">Pipeline</a>
+        <a href="http://localhost:8501" class="btn-launch">▶ Launch Engine</a>
+    </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-grid-bg"></div>
+    <div class="hero-glow"></div>
+    <div class="hero-badge"><span class="rec-dot"></span> Security Evidence Engine v1.0</div>
+    <h1>
+        <span class="line"><span>Evidence First.</span></span>
+        <span class="line"><span class="highlight">AI Second.</span></span>
+        <span class="line"><span>Human Always.</span></span>
+    </h1>
+    <p class="hero-sub">Multi-camera CCTV analysis powered by real-time person tracking, cross-camera re-identification, and automated incident reporting — built for investigators who demand proof, not guesses.</p>
+    <div class="hero-cta">
+        <a href="http://localhost:8501" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2L13 8L4 14V2Z" fill="currentColor"/></svg>
+            Launch CaseLine
+        </a>
+        <a href="#pipeline" class="btn-ghost">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1V12M8 12L4 8M8 12L12 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            See How It Works
+        </a>
+    </div>
+    <div class="hero-scroll-hint">
+        <span>Scroll</span>
+        <div class="scroll-line"></div>
+    </div>
+</section>
+
+<!-- Terminal -->
+<div class="terminal-section">
+    <div class="terminal" id="terminal">
+        <div class="terminal-header">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+            <span class="terminal-title">caseline — analysis session</span>
+        </div>
+        <div class="terminal-body">
+            <div class="line"><span class="t-prompt">caseline ▸ </span><span class="t-cmd">analyze --case CASE-001 --input ./cctv_feeds/</span></div>
+            <div class="line"><span class="t-output">[1/5] Ingesting 4 video feeds...</span></div>
+            <div class="line"><span class="t-output">[2/5] Running YOLO11 person detection + ByteTrack...</span></div>
+            <div class="line"><span class="t-accent">       ✦ CAM01: 3 subjects tracked (142 detections)</span></div>
+            <div class="line"><span class="t-accent">       ✦ CAM02: 2 subjects tracked (89 detections)</span></div>
+            <div class="line"><span class="t-output">[3/5] Extracting MobileNetV3 appearance embeddings...</span></div>
+            <div class="line"><span class="t-output">[4/5] Cross-camera matching (cosine similarity > 0.65)...</span></div>
+            <div class="line"><span class="t-warning">       ⚠ 2 candidate links require HUMAN REVIEW</span></div>
+            <div class="line"><span class="t-output">[5/5] Rendering annotated evidence videos...</span></div>
+            <div class="line"><span class="t-success">       ✔ Analysis complete. Awaiting human verification.</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Features -->
+<section id="features">
+    <p class="section-label">Capabilities</p>
+    <h2 class="section-title">Built for the<br>toughest investigations.</h2>
+    <p class="section-desc">Every feature is designed to preserve evidence integrity while accelerating analysis. No black boxes — every AI decision is auditable.</p>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🎯</div>
+            <h3>Person Detection & Tracking</h3>
+            <p>YOLO11 + ByteTrack assigns persistent IDs to every individual across frames with blue bounding box overlays.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔗</div>
+            <h3>Cross-Camera Re-ID</h3>
+            <p>MobileNetV3 appearance embeddings + cosine similarity match the same person across different camera views automatically.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">✂️</div>
+            <h3>Smart Video Trimming</h3>
+            <p>Output videos start the moment a person enters the frame and end when they leave — zero wasted footage.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">👁️</div>
+            <h3>Human-in-the-Loop Review</h3>
+            <p>AI proposes cross-camera links. Humans approve or reject with side-by-side crop comparisons. No automated decisions.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📋</div>
+            <h3>Incident Timeline</h3>
+            <p>Automatically generated chronological event log with camera transition mapping and interactive path visualization.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <h3>Semantic Search</h3>
+            <p>Search evidence with natural language — "man in red shirt" — powered by CLIP zero-shot classification.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Pipeline -->
+<section id="pipeline">
+    <p class="section-label">Analysis Pipeline</p>
+    <h2 class="section-title">From raw CCTV<br>to courtroom-ready evidence.</h2>
+    <p class="section-desc">A transparent, five-step pipeline where AI handles the heavy lifting and humans make every critical decision.</p>
+
+    <div class="pipeline-track">
+        <div class="pipeline-line-fill" id="pipeline-fill"></div>
+        <div class="pipeline-step">
+            <div class="step-dot">01</div>
+            <h3>Ingest & Hash</h3>
+            <p>Video feeds are ingested and SHA-256 hashed for tamper-proof chain of custody. Every frame is accounted for.</p>
+            <span class="step-tag">Automated</span>
+        </div>
+        <div class="pipeline-step">
+            <div class="step-dot">02</div>
+            <h3>Detect & Track</h3>
+            <p>YOLO11 detects persons per frame. ByteTrack maintains persistent IDs through occlusions and re-entries.</p>
+            <span class="step-tag ai">AI-Powered</span>
+        </div>
+        <div class="pipeline-step">
+            <div class="step-dot">03</div>
+            <h3>Extract Appearance</h3>
+            <p>MobileNetV3 encodes each subject into a 576-dim feature vector. Sampled crops are saved as visual evidence.</p>
+            <span class="step-tag ai">AI-Powered</span>
+        </div>
+        <div class="pipeline-step">
+            <div class="step-dot">04</div>
+            <h3>Cross-Camera Matching</h3>
+            <p>Candidate identity links are proposed by cosine similarity and temporal analysis — then surfaced for human review.</p>
+            <span class="step-tag human">Human Review</span>
+        </div>
+        <div class="pipeline-step">
+            <div class="step-dot">05</div>
+            <h3>Report & Export</h3>
+            <p>Approved links generate an incident timeline, path graph, and a downloadable PDF evidence report.</p>
+            <span class="step-tag">Automated</span>
+        </div>
+    </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-bar">
+    <div class="stat">
+        <div class="stat-number" data-target="11">0</div>
+        <div class="stat-label">YOLO Generation</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number" data-target="576">0</div>
+        <div class="stat-label">Feature Dimensions</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number" data-target="100">0%</div>
+        <div class="stat-label">Human Oversight</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number" data-target="0">0</div>
+        <div class="stat-label">Black Box Decisions</div>
+    </div>
+</div>
+
+<!-- CTA -->
+<section class="cta">
+    <div class="cta-glow"></div>
+    <h2>Ready to investigate?</h2>
+    <p>Launch CaseLine and start your first case in under 60 seconds.</p>
+    <a href="http://localhost:8501" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2L13 8L4 14V2Z" fill="currentColor"/></svg>
+        Launch CaseLine
+    </a>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-left">CASELINE © 2026 — Evidence First. AI Second. Human Always.</div>
+    <div class="footer-right">Built with YOLO11 · ByteTrack · MobileNetV3 · CLIP</div>
+</footer>
+
+<!-- GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+    gsap.registerPlugin(ScrollTrigger);
+
+    // ── Hero entrance ──
+    const heroTL = gsap.timeline({ defaults: { ease: "power4.out" } });
+
+    heroTL
+        .from(".nav", { y: -30, opacity: 0, duration: 0.8 }, 0.2)
+        .from(".hero-badge", { y: 20, opacity: 0, duration: 0.8 }, 0.5)
+        .to(".hero h1 .line span", {
+            y: 0,
+            duration: 1.2,
+            stagger: 0.15,
+            ease: "power4.out"
+        }, 0.7)
+        .to(".hero-sub", { opacity: 1, y: 0, duration: 0.8 }, 1.4)
+        .to(".hero-cta", { opacity: 1, y: 0, duration: 0.8 }, 1.6)
+        .to(".hero-scroll-hint", { opacity: 1, duration: 0.8 }, 2);
+
+    // ── Terminal scroll-in ──
+    gsap.to("#terminal", {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 1,
+        ease: "power3.out",
+        scrollTrigger: {
+            trigger: "#terminal",
+            start: "top 85%",
+            toggleActions: "play none none reverse"
+        }
+    });
+
+    // Terminal lines type-in
+    ScrollTrigger.create({
+        trigger: "#terminal",
+        start: "top 70%",
+        onEnter: () => {
+            gsap.to("#terminal .terminal-body .line", {
+                opacity: 1,
+                x: 0,
+                duration: 0.4,
+                stagger: 0.18,
+                ease: "power2.out"
+            });
+        },
+        once: true
+    });
+
+    // ── Feature cards stagger ──
+    gsap.utils.toArray(".feature-card").forEach((card, i) => {
+        gsap.to(card, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            delay: i * 0.1,
+            ease: "power3.out",
+            scrollTrigger: {
+                trigger: card,
+                start: "top 88%",
+                toggleActions: "play none none reverse"
+            }
+        });
+    });
+
+    // ── Pipeline steps ──
+    const steps = gsap.utils.toArray(".pipeline-step");
+    steps.forEach((step, i) => {
+        const st = ScrollTrigger.create({
+            trigger: step,
+            start: "top 75%",
+            onEnter: () => {
+                gsap.to(step, {
+                    opacity: 1,
+                    x: 0,
+                    duration: 0.7,
+                    ease: "power3.out"
+                });
+                step.classList.add("active");
+            },
+            onLeaveBack: () => {
+                gsap.to(step, {
+                    opacity: 0,
+                    x: -30,
+                    duration: 0.4,
+                    ease: "power2.in"
+                });
+                step.classList.remove("active");
+            }
+        });
+    });
+
+    // Pipeline fill line
+    gsap.to("#pipeline-fill", {
+        height: "100%",
+        ease: "none",
+        scrollTrigger: {
+            trigger: ".pipeline-track",
+            start: "top 60%",
+            end: "bottom 40%",
+            scrub: 0.8
+        }
+    });
+
+    // ── Stats counter ──
+    gsap.utils.toArray(".stat").forEach((stat, i) => {
+        const numEl = stat.querySelector(".stat-number");
+        const target = parseInt(numEl.dataset.target);
+        const suffix = numEl.textContent.includes('%') ? '%' : '';
+
+        ScrollTrigger.create({
+            trigger: stat,
+            start: "top 85%",
+            onEnter: () => {
+                gsap.to(stat, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" });
+                gsap.to({ val: 0 }, {
+                    val: target,
+                    duration: 1.5,
+                    delay: i * 0.12,
+                    ease: "power2.out",
+                    onUpdate: function() {
+                        numEl.textContent = Math.round(this.targets()[0].val) + suffix;
+                    }
+                });
+            },
+            once: true
+        });
+    });
+
+    // ── CTA ──
+    const ctaTL = gsap.timeline({
+        scrollTrigger: {
+            trigger: ".cta",
+            start: "top 75%",
+            toggleActions: "play none none reverse"
+        }
+    });
+    ctaTL
+        .to(".cta h2", { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" })
+        .to(".cta p", { opacity: 1, y: 0, duration: 0.6 }, "-=0.4")
+        .to(".cta .btn-primary", { opacity: 1, y: 0, duration: 0.6 }, "-=0.3");
+</script>
+</body>
+</html>
