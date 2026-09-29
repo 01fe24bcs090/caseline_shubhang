@@ -122,10 +122,16 @@ class TrackedObject:
         return "Uncertain object"
 
 
+# Locate bundled yolo11n.pt relative to project root
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOCAL_MODEL = os.path.join(_ROOT_DIR, "yolo11n.pt")
+DEFAULT_MODEL_PATH = _LOCAL_MODEL if os.path.exists(_LOCAL_MODEL) else "yolo11n.pt"
+
+
 class ObjectDetector:
     """Detects and tracks non-person objects with temporal stability analysis."""
 
-    def __init__(self, model_path="yolo11n.pt", config: Optional[ObjectStabilityConfig] = None):
+    def __init__(self, model_path=DEFAULT_MODEL_PATH, config: Optional[ObjectStabilityConfig] = None):
         self.model = YOLO(model_path)
         self.config = config or ObjectStabilityConfig()
 

@@ -4,8 +4,13 @@ import csv
 import pandas as pd
 from ultralytics import YOLO
 
+# Locate bundled yolo11n.pt relative to project root
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_LOCAL_MODEL = os.path.join(_ROOT_DIR, "yolo11n.pt")
+DEFAULT_MODEL_PATH = _LOCAL_MODEL if os.path.exists(_LOCAL_MODEL) else "yolo11n.pt"
+
 class Tracker:
-    def __init__(self, model_path="yolo11n.pt"): # Using Nano model for huge CPU speedup
+    def __init__(self, model_path=DEFAULT_MODEL_PATH): # Using Nano model for huge CPU speedup
         self.model = YOLO(model_path)
         
     def process_video(self, case_id: str, camera_id: str, video_path: str, output_csv: str, frame_skip: int = 2):

@@ -1,15 +1,43 @@
+# Python virtual environments
 venv/
 .venv/
+env/
+ENV/
+
+# Python cache & compiled files
 __pycache__/
 *.py[cod]
 *$py.class
-data/cases/
+
+# Case data: ignore user-generated cases except .gitkeep
+data/cases/*
+!data/cases/.gitkeep
 data/cache/
-output/
+
+# Output artifacts: ignore generated outputs except .gitkeep
+output/*
+!output/.gitkeep
+
+# Models: Ignore arbitrary external weights, but keep bundled YOLO models tracked
 *.pt
-.tempmediaStorage/
+!yolo11n.pt
+!yolo11s.pt
+
+# Video files: Ignore uploaded video files, but keep sample test footage
 *.mp4
 *.webm
 *.avi
+!data/videos/cctv.webm
+!data/videos/cctv2.webm
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.tempmediaStorage/
+.idea/
+.vscode/
+
+# Environment and secrets (keep .env.example tracked)
 .env
 .env.*
+!.env.example

@@ -1,6 +1,13 @@
 import streamlit as st
 import os
 import pandas as pd
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from core.case import CaseManager
 from core.pipeline import CaselinePipeline
 import networkx as nx
@@ -233,9 +240,16 @@ st.markdown("""
 st.sidebar.header("Case Management")
 cases_dir = "data/cases"
 os.makedirs(cases_dir, exist_ok=True)
-existing_cases = os.listdir(cases_dir)
+existing_cases = sorted([d for d in os.listdir(cases_dir) if os.path.isdir(os.path.join(cases_dir, d))])
 
-selected_case = st.sidebar.selectbox("Select Case", ["-- Create New Case --"] + existing_cases)
+case_options = ["-- Create New Case --"] + existing_cases
+default_index = 0
+override = st.session_state.get("selected_case_override")
+if override and override in case_options:
+    default_index = case_options.index(override)
+    del st.session_state["selected_case_override"]
+
+selected_case = st.sidebar.selectbox("Select Case", case_options, index=default_index)
 
 DEFAULT_GEMINI_KEY = os.environ.get("GEMINI_API_KEY", "")
 
@@ -273,6 +287,29 @@ if selected_case == "-- Create New Case --":
                 st.error(str(e))
         else:
             st.warning("Please provide both Case ID and Incident Description.")
+
+    st.markdown("---")
+    st.subheader("⚡ Quick Start with Bundled Demo Feeds")
+    st.write("First time running CaseLine on a new machine? Click below to instantly configure a pre-loaded demonstration case with bundled multi-camera CCTV footage and badge logs.")
+    if st.button("🚀 Load Quick Demo Case (DEMO-001)", type="secondary"):
+        demo_id = "DEMO-001"
+        if demo_id not in existing_cases:
+            try:
+                manager.create_case(demo_id, "Security Incident Drill — Main Corridor & Server Room Feeds")
+            except ValueError:
+                pass
+        c_info = manager.load_case_info(demo_id)
+        if len(c_info.videos) == 0:
+            for sv in ["cctv.webm", "cctv2.webm"]:
+                sv_path = os.path.join("data", "videos", sv)
+                if os.path.exists(sv_path):
+                    manager.ingest_video(demo_id, sv_path)
+        sample_log = os.path.join("data", "sample_access_logs.csv")
+        if os.path.exists(sample_log) and not c_info.access_logs:
+            manager.ingest_access_log(demo_id, sample_log)
+        st.session_state["selected_case_override"] = demo_id
+        st.success("DEMO-001 initialized! Loading...")
+        st.rerun()
 else:
     case_id = selected_case
     case_dir = os.path.join(cases_dir, case_id)
@@ -304,17 +341,29 @@ else:
     
     with tab1:
         st.subheader("Upload Videos")
-        uploaded_vids = st.file_uploader("Upload CCTV Videos", accept_multiple_files=True, type=["mp4", "webm", "avi"])
-        if st.button("Ingest Videos"):
-            for vid in uploaded_vids:
-                temp_path = os.path.join(case_dir, vid.name)
-                with open(temp_path, "wb") as f:
-                    f.write(vid.getbuffer())
-                
-                manager.ingest_video(case_id, temp_path)
-                os.remove(temp_path)
-            st.success("Videos ingested successfully!")
-            st.rerun()
+        col_vid_up, col_vid_demo = st.columns([1, 1])
+        with col_vid_up:
+            uploaded_vids = st.file_uploader("Upload CCTV Videos", accept_multiple_files=True, type=["mp4", "webm", "avi"])
+            if st.button("Ingest Videos", type="primary"):
+                for vid in uploaded_vids:
+                    temp_path = os.path.join(case_dir, vid.name)
+                    with open(temp_path, "wb") as f:
+                        f.write(vid.getbuffer())
+                    manager.ingest_video(case_id, temp_path)
+                    os.remove(temp_path)
+                st.success("Videos ingested successfully!")
+                st.rerun()
+        with col_vid_demo:
+            st.write("**Or load bundled sample feeds:**")
+            sample_vids = [f for f in ["cctv.webm", "cctv2.webm"] if os.path.exists(os.path.join("data", "videos", f))]
+            if sample_vids:
+                if st.button("📁 Ingest Sample CCTV Videos (data/videos/)"):
+                    for sv in sample_vids:
+                        manager.ingest_video(case_id, os.path.join("data", "videos", sv))
+                    st.success("Sample CCTV videos ingested!")
+                    st.rerun()
+            else:
+                st.caption("No sample videos found in data/videos/.")
             
         st.subheader("Current Video Evidence")
         if not case_info.videos:
@@ -333,16 +382,28 @@ else:
             """, unsafe_allow_html=True)
             
         st.subheader("Upload Access Logs")
-        uploaded_log = st.file_uploader("Upload Access Log (CSV)", type=["csv"])
-        if st.button("Ingest Access Log"):
-            if uploaded_log:
-                temp_path = os.path.join(case_dir, uploaded_log.name)
-                with open(temp_path, "wb") as f:
-                    f.write(uploaded_log.getbuffer())
-                manager.ingest_access_log(case_id, temp_path)
-                os.remove(temp_path)
-                st.success("Access log ingested!")
-                st.rerun()
+        col_log_up, col_log_demo = st.columns([1, 1])
+        with col_log_up:
+            uploaded_log = st.file_uploader("Upload Access Log (CSV)", type=["csv"])
+            if st.button("Ingest Access Log", type="primary"):
+                if uploaded_log:
+                    temp_path = os.path.join(case_dir, uploaded_log.name)
+                    with open(temp_path, "wb") as f:
+                        f.write(uploaded_log.getbuffer())
+                    manager.ingest_access_log(case_id, temp_path)
+                    os.remove(temp_path)
+                    st.success("Access log ingested!")
+                    st.rerun()
+        with col_log_demo:
+            st.write("**Or load bundled sample access log:**")
+            sample_log = os.path.join("data", "sample_access_logs.csv")
+            if os.path.exists(sample_log):
+                if st.button("📁 Ingest Sample Access Log (data/sample_access_logs.csv)"):
+                    manager.ingest_access_log(case_id, sample_log)
+                    st.success("Sample access log ingested!")
+                    st.rerun()
+            else:
+                st.caption("No sample access log found in data/.")
                 
     with tab2:
         st.subheader("Automated Analysis Pipeline")

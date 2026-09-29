@@ -13,6 +13,12 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
     from google import genai
     from google.genai import types
     GENAI_AVAILABLE = True

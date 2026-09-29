@@ -24,7 +24,29 @@ from vision.object_detector import ObjectDetector, ObjectStabilityConfig
 from vision.activity_status import ActivityStatusEngine, ActivityConfig
 from vision.tracking import Tracker
 
-def run_diagnostics(case_id="new001"):
+def run_diagnostics(case_id=None):
+    cases_dir = os.path.join("data", "cases")
+    os.makedirs(cases_dir, exist_ok=True)
+    
+    if not case_id:
+        existing = [d for d in os.listdir(cases_dir) if os.path.isdir(os.path.join(cases_dir, d))]
+        if "new001" in existing:
+            case_id = "new001"
+        elif existing:
+            case_id = existing[0]
+        else:
+            case_id = "DEMO-001"
+            from core.case import CaseManager
+            cm = CaseManager()
+            try:
+                cm.create_case(case_id, "Diagnostics Auto-Setup Case")
+            except ValueError:
+                pass
+            for sv in ["cctv.webm", "cctv2.webm"]:
+                svp = os.path.join("data", "videos", sv)
+                if os.path.exists(svp):
+                    cm.ingest_video(case_id, svp)
+
     print("=" * 70)
     print(f"CASELINE — OBJECT DETECTION DIAGNOSTIC STEP (Case: {case_id})")
     print("=" * 70)
@@ -230,4 +252,5 @@ def run_diagnostics(case_id="new001"):
     print("=" * 70)
 
 if __name__ == "__main__":
-    run_diagnostics()
+    target = sys.argv[1] if len(sys.argv) > 1 else None
+    run_diagnostics(target)

@@ -1,0 +1,5 @@
+timestamp,badge_id,access_point,event_type,granted,holder_name
+2.5,BADGE-092,CAM01,ENTRY,True,Marcus Vance
+6.0,BADGE-144,CAM02,ENTRY,True,Elena Rostova
+14.2,BADGE-092,CAM02,ENTRY,True,Marcus Vance
+18.5,BADGE-999,CAM01,ENTRY,False,Unauthorized Contractor
