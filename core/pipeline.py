@@ -6,6 +6,8 @@ from vision.event_correlation import EventExtractor
 from vision.report import ReportGenerator
 from vision.object_detector import ObjectDetector
 from vision.activity_status import ActivityStatusEngine, ActivityConfig
+from vision.zone_detection import ZoneManager, ZoneViolationDetector
+from vision.access_correlation import AccessLogParser, AccessLogCorrelator
 
 class CaselinePipeline:
     def __init__(self):
@@ -105,9 +107,77 @@ class CaselinePipeline:
                                       activity_data=activity_data,
                                       objects_csv=obj_csv)
 
+        # 4b. Zone Violation Detection
+        print("Checking restricted zone violations...")
+        zone_mgr = ZoneManager(case_dir)
+        zone_detector = ZoneViolationDetector(zone_mgr)
+        for video_file in os.listdir(videos_dir):
+            if not video_file.endswith(('.mp4', '.webm', '.avi')): continue
+            camera_id = video_file.split("_")[0]
+            csv_path = os.path.join(evidence_dir, f"{camera_id}_tracking.csv")
+            vid_path = os.path.join(videos_dir, video_file)
+
+            import cv2
+            cap = cv2.VideoCapture(vid_path)
+            fps = cap.get(cv2.CAP_PROP_FPS) if cap.isOpened() else 25.0
+            cap.release()
+            if fps <= 0:
+                fps = 25.0
+
+            zones = zone_mgr.load_zones(camera_id)
+            if zones:
+                violations = zone_detector.detect_violations(camera_id, csv_path, fps)
+                if not violations.empty:
+                    zone_detector.save_violations(camera_id, violations)
+                    print(f"    {camera_id}: {len(violations)} zone events detected")
+                else:
+                    print(f"    {camera_id}: No zone violations")
+            else:
+                print(f"    {camera_id}: No zones defined")
+
         # 5. Candidate Matching (UNCHANGED)
         print("Matching tracks...")
         self.matcher.match_tracks(case_dir)
+
+        # 5b. Access Log Correlation
+        self._correlate_access_logs(case_dir, evidence_dir, videos_dir)
+
+    def _correlate_access_logs(self, case_dir: str, evidence_dir: str, videos_dir: str):
+        """Correlate ingested access logs with video tracking data."""
+        # Find any ingested access log
+        access_logs = [f for f in os.listdir(evidence_dir)
+                       if f.startswith("access_log_") and f.endswith(".csv")]
+        if not access_logs:
+            print("  No access logs found, skipping correlation.")
+            return
+
+        parser = AccessLogParser()
+        correlator = AccessLogCorrelator(time_window=15.0)
+
+        for log_file in access_logs:
+            log_path = os.path.join(evidence_dir, log_file)
+            events = parser.parse(log_path)
+            if not events:
+                continue
+
+            print(f"  Correlating {len(events)} access events from {log_file}...")
+
+            # Correlate against each camera
+            all_results = []
+            tracking_csvs = [f for f in os.listdir(evidence_dir) if f.endswith("_tracking.csv")]
+            for trk_file in tracking_csvs:
+                camera_id = trk_file.split("_")[0]
+                trk_path = os.path.join(evidence_dir, trk_file)
+                results = correlator.correlate(events, trk_path, camera_id)
+                all_results.extend(results)
+
+            if all_results:
+                output_csv = os.path.join(evidence_dir, "access_correlation.csv")
+                correlator.save_correlation_report(all_results, output_csv)
+                summary = correlator.generate_summary(all_results)
+                print(f"    Matched: {summary['matched']} | "
+                      f"Ghost swipes: {summary['ghost_swipes']} | "
+                      f"Unmatched persons: {summary['unmatched_persons']}")
 
     def process_approvals_and_finish(self, case_id: str, case_dir: str, approved_links: list):
         print("Processing human approvals...")

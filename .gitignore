@@ -1,9 +1,15 @@
 venv/
+.venv/
 __pycache__/
-*.pyc
-data/
+*.py[cod]
+*$py.class
+data/cases/
+data/cache/
+output/
 *.pt
 .tempmediaStorage/
 *.mp4
 *.webm
 *.avi
+.env
+.env.*
